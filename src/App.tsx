@@ -6,11 +6,14 @@ import querySearchData from "./queryFunctions/querySearchData";
 import Button from "./components/Button/Button";
 import TableRow from "./components/Table/TableRow/TableRow";
 import Table from "./components/Table/Table";
+import Modal from "./components/Modal/Modal";
+import Error from "./components/Error/Error";
+import VIEW_ITEMS_INDEXES from "./constants/VIEW_ITEMS_INDEXES";
 import ItemType from "./types/ItemType";
 import IconArrowLeft from "./components/icons/IconArrowLeft";
 import IconRight from "./components/icons/IconArrowRight";
 import "./App.css";
-import Modal from "./components/Modal/Modal";
+import Loading from "./components/Loading/Loading";
 
 function App() {
   // set the default page number when the app loads and there is no page already set
@@ -31,18 +34,12 @@ function App() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [modalData, setModalData] = useState<null | ItemType>(null);
 
-  const viewItemIndexes = {
-    page1: [0, 1, 2, 3, 4],
-    page2: [5, 6, 7, 8, 9],
-    page3: [4, 5],
-  };
-
   function handleSearchIDChange(e: React.ChangeEvent<HTMLInputElement>) {
-    const inputData = e.target.value;
+    const inputData = e.target.value.replace(/[^\d]+/g, "");
     setSearchID(inputData);
     const url = new URL(location.toString());
     if (inputData) {
-      url.searchParams.set("id", e.target.value);
+      url.searchParams.set("id", inputData);
     } else {
       url.searchParams.delete("id");
     }
@@ -80,7 +77,6 @@ function App() {
   });
 
   const {
-    isPending: isPendingSearch,
     isFetching: isFetchingSearch,
     isError: isErrorSearch,
     error: errorSearch,
@@ -93,17 +89,17 @@ function App() {
     retry: false,
   });
 
-  if (isPending || isFetching || isFetchingSearch || isPendingSearch) return "Loading...";
+  if (isPending || isFetching || isFetchingSearch) return <Loading />;
 
-  if (isError) return `There was an error: ${error.message}`;
-  if (isErrorSearch) return `There was an error: ${errorSearch.message}`;
+  if (isError) return <Error errorMessage={error.message} />;
+  if (isErrorSearch) return <Error errorMessage={errorSearch.message} />;
 
   const numberOfPages = Math.ceil(data.page1.total % 5);
 
   const results: ItemType[] = [];
 
   if (data.page1.data && data.page2.data) {
-    viewItemIndexes[`page${pageNumber}` as keyof typeof viewItemIndexes].map((index: number) => {
+    VIEW_ITEMS_INDEXES[`page${pageNumber}` as keyof typeof VIEW_ITEMS_INDEXES].map((index: number) => {
       return results.push([...data.page1.data, ...data.page2.data][index]);
     });
   }
@@ -127,7 +123,7 @@ function App() {
           value={searchID}
           onChange={(e) => handleSearchIDChange(e)}
           className="bg-gray-50 border border-gray-300 text-base text-gray-900 rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-          type="number"
+          type="text"
           placeholder="Enter the ID you're looking for..."
         />
       </label>
@@ -139,13 +135,18 @@ function App() {
           })}
       </Table>
       <div className="flex align-middle justify-center gap-2 my-4">
-        <Button onClick={() => handlePageChange("backwards")} isDisabled={currentPage === 1 || isFetching || isPending}>
+        <Button
+          onClick={() => handlePageChange("backwards")}
+          isDisabled={currentPage === 1 || isFetching || isPending || dataSearch.data}
+        >
           <span className="sr-only">Previous 5 items</span>
           <IconArrowLeft />
         </Button>
         <Button
           onClick={() => handlePageChange("forwards")}
-          isDisabled={(currentPage !== null && currentPage > numberOfPages) || isFetching || isPending}
+          isDisabled={
+            (currentPage !== null && currentPage > numberOfPages) || isFetching || isPending || dataSearch.data
+          }
         >
           <span className="sr-only">Next 5 items</span>
           <IconRight />
