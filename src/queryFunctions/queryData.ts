@@ -8,8 +8,9 @@ export default async function queryData(page: number = 1) {
   } else {
     const response1 = await fetch(`${BASIC_API}?page=${page - 1}`);
     const response2 = await fetch(`${BASIC_API}?page=${page}`);
-    const data1 = await response1.json();
-    const data2 = await response2.json();
-    return { page1: data1, page2: data2 };
+    const data1 = response1.json();
+    const data2 = response2.json();
+    const allData = await Promise.all([data1, data2]);
+    return { page1: allData[0], page2: allData[1] };
   }
 }
