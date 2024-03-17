@@ -1,13 +1,10 @@
-import { ReactNode, useState } from "react";
+import { ReactNode } from "react";
 
 interface ListProps {
   children: ReactNode;
-  onClick?: React.MouseEventHandler<HTMLButtonElement>;
 }
 
 function List({ children }: ListProps) {
-  const [isModalOpen, setIsModalOpen] = useState(false);
-
   return (
     <table className="w-full text-sm text-left rtl:text-right text-black-500 text-lg">
       <thead className="text-lg text-black-700 uppercase bg-gray-50">
