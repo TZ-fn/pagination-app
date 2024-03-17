@@ -1,6 +1,8 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
+import { useDebounce } from "@uidotdev/usehooks";
 import queryData from "./queryFunctions/queryData";
+import querySearchData from "./queryFunctions/querySearchData";
 import Button from "./components/Button/Button";
 import TableRow from "./components/Table/TableRow/TableRow";
 import Table from "./components/Table/Table";
@@ -18,15 +20,30 @@ function App() {
   }
 
   const pageNumber = Number(new URLSearchParams(location.search).get("page")) ?? 1;
+  const currentSearch = new URLSearchParams(location.search).get("id") ?? "";
 
   const [currentPage, setCurrentPage] = useState(pageNumber);
 
+  const [searchID, setSearchID] = useState(currentSearch);
+  const debouncedSearchTerm = useDebounce(searchID, 500);
+
   const viewItemIndexes = {
-    1: [0, 1, 2, 3, 4],
-    2: [5, 6, 7, 8, 9],
-    3: [4, 5],
+    page1: [0, 1, 2, 3, 4],
+    page2: [5, 6, 7, 8, 9],
+    page3: [4, 5],
   };
 
+  function handleSearchIDChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const inputData = e.target.value;
+    setSearchID(inputData);
+    const url = new URL(location.toString());
+    if (inputData) {
+      url.searchParams.set("id", e.target.value);
+    } else {
+      url.searchParams.delete("id");
+    }
+    history.pushState({}, "", url);
+  }
   function handlePageChange(direction: "backwards" | "forwards") {
     const url = new URL(location.toString());
     const directionModifier = direction === "backwards" ? -1 : 1;
@@ -35,22 +52,36 @@ function App() {
     history.pushState({}, "", url);
   }
 
-  const { isPending, error, data } = useQuery({
+  const { isPending, isFetching, isError, error, data } = useQuery({
     queryKey: ["items", currentPage],
-    queryFn: () => queryData(pageNumber),
+    queryFn: () => queryData(currentPage),
     placeholderData: keepPreviousData,
   });
 
-  if (isPending) return "Loading...";
+  const {
+    isPending: isPendingSearch,
+    isFetching: isFetchingSearch,
+    isError: isErrorSearch,
+    error: errorSearch,
+    data: dataSearch,
+  } = useQuery({
+    queryKey: ["search", Number(debouncedSearchTerm)],
+    queryFn: () => querySearchData(Number(debouncedSearchTerm)),
+    placeholderData: keepPreviousData,
+    staleTime: 500,
+  });
 
-  if (error) return `There was an error: ${error.message}`;
+  if (isPending || isFetching || isFetchingSearch || isPendingSearch) return "Loading...";
+
+  if (isError) return `There was an error: ${error.message}`;
+  if (isErrorSearch) return `There was an error: ${errorSearch.message}`;
 
   const numberOfPages = Math.ceil(data.page1.total % 5);
 
   const results: ItemType[] = [];
 
   if (data.page1.data && data.page2.data) {
-    viewItemIndexes[currentPage].map((index: number) => {
+    viewItemIndexes[`page${pageNumber}` as keyof typeof viewItemIndexes].map((index: number) => {
       return results.push([...data.page1.data, ...data.page2.data][index]);
     });
   }
@@ -61,27 +92,28 @@ function App() {
         Search by ID
         <input
           id="searchInput"
+          value={searchID}
+          onChange={(e) => handleSearchIDChange(e)}
           className="bg-gray-50 border border-gray-300 text-base text-gray-900 rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
           type="number"
           placeholder="Enter the ID you're looking for..."
         />
       </label>
-      {console.log(results)}
       <Table>
-        {results &&
-          results.length > 1 &&
+        {dataSearch.data && <TableRow {...dataSearch.data} />}
+        {!dataSearch.data &&
           results.map(({ id, name, year, color }: ItemType) => {
             return <TableRow key={id} id={id} name={name} year={year} color={color} />;
           })}
       </Table>
       <div className="flex align-middle justify-center gap-2 my-4">
-        <Button onClick={() => handlePageChange("backwards")} isDisabled={currentPage === 1}>
+        <Button onClick={() => handlePageChange("backwards")} isDisabled={currentPage === 1 || isFetching || isPending}>
           <span className="sr-only">Previous 5 items</span>
           <IconArrowLeft />
         </Button>
         <Button
           onClick={() => handlePageChange("forwards")}
-          isDisabled={currentPage !== null && currentPage > numberOfPages}
+          isDisabled={(currentPage !== null && currentPage > numberOfPages) || isFetching || isPending}
         >
           <span className="sr-only">Next 5 items</span>
           <IconRight />
