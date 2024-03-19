@@ -10,7 +10,7 @@ function Error({ errorMessage }: { errorMessage: string }) {
       </svg>
       <div className="flex flex-col justify-center align-middle">
         <p className="text-center">There was an error: {errorMessage}</p>
-        <a className="underline text-center" href="/">
+        <a className="underline text-center" href="/pagination-app/">
           Go back to the main page.
         </a>
       </div>
